@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"strings"
+	"httpfromtcp/internal/request"
 )
 
 const PORT = ":42069"
@@ -27,46 +26,18 @@ func main() {
 		fmt.Printf("Connected on port %s\n", PORT)
 		
 		go func ()  {
-			readChan := getLinesChannel(conn)
-			for msgs := range readChan {
-				fmt.Printf("read: %s\n", msgs)
-			}
-		} ()
-			
-	}
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	lineChan := make(chan string)
-
-	go func ()  {
-		defer f.Close()
-		defer fmt.Printf("Closing connection\n")
-		defer close(lineChan)
-
-		var line string = "";
-		for {
-			word := make([]byte, 8)
-			_, err := f.Read(word)
+			req, err := request.RequestFromReader(conn)
 			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				fmt.Println("Error Reading file")
-				close(lineChan)
+				log.Printf("Unable to parse from connection")
 				return
 			}
 
-			strSlice := strings.Split(string(word), "\n")
-			line += strSlice[0]
-
-			for index := 1; index < len(strSlice); index++ {
-				lineChan <- line
-				line = strSlice[index]
-			}
-		}
-		lineChan <- line
-	}()
-	
-	return lineChan
+			fmt.Printf("Request line:\n - Method: %s\n - Target: %s\n - Version: %s\n",
+				req.RequestLine.Method,
+				req.RequestLine.RequestTarget,
+				req.RequestLine.HttpVersion,
+			)
+		} ()
+			
+	}
 }
