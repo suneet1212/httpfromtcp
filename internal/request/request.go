@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"httpfromtcp/internal/headers"
 )
 
 type ParserState int
 
 const (
 	Initialized ParserState = iota
+	ParsingHeaders
 	Done
 )
 
@@ -22,11 +25,13 @@ type RequestLine struct {
 type Request struct {
 	RequestLine RequestLine
 	state ParserState
+	Headers headers.Headers
 }
 
 func newRequest() *Request {
 	return &Request{
 		state: Initialized,
+		Headers: headers.NewHeaders(),
 	}
 }
 
@@ -107,15 +112,37 @@ func validateVersion(version []string) bool {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
+	parsedLen := 0
 outer:
 	for {
 		switch r.state {
 		case Initialized:
 			parsedLength, err := parseRequestLine(r, string(data))
-			if parsedLength > 0 {
+			if err != nil {
+				return parsedLength, err
+			}
+			if parsedLength == 0 {
+				break outer
+			}
+			r.state = ParsingHeaders
+			parsedLen += parsedLength
+			data = data[parsedLength:]
+
+		case ParsingHeaders:
+			len, done, err := r.Headers.Parse(data)
+			if err != nil {
+				return parsedLen, err
+			}
+
+			if len == 0 {
+				break outer
+			}
+
+			data = data[len:]
+			parsedLen += len
+			if done {
 				r.state = Done
 			}
-			return parsedLength, err
 
 		case Done:
 			break outer
@@ -125,5 +152,5 @@ outer:
 
 		}
 	}
-	return 0, nil
+	return parsedLen, nil
 }

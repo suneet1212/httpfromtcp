@@ -8,6 +8,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type chunkReader struct {
+	data            string
+	numBytesPerRead int
+	pos             int
+}
+
+// Read reads up to len(p) or numBytesPerRead bytes from the string per call
+// its useful for simulating reading a variable number of bytes per chunk from a network connection
+func (cr *chunkReader) Read(p []byte) (n int, err error) {
+	if cr.pos >= len(cr.data) {
+		return 0, io.EOF
+	}
+	endIndex := cr.pos + cr.numBytesPerRead
+	if endIndex > len(cr.data) {
+		endIndex = len(cr.data)
+	}
+	n = copy(p, cr.data[cr.pos:endIndex])
+	cr.pos += n
+
+	return n, nil
+}
+
 func TestRequestLineParse(t *testing.T) {
 	inputDataStrs := [...]string{
 		"GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
@@ -99,24 +121,83 @@ func TestRequestLineParse(t *testing.T) {
 	}
 }
 
-type chunkReader struct {
-	data            string
-	numBytesPerRead int
-	pos             int
-}
-
-// Read reads up to len(p) or numBytesPerRead bytes from the string per call
-// its useful for simulating reading a variable number of bytes per chunk from a network connection
-func (cr *chunkReader) Read(p []byte) (n int, err error) {
-	if cr.pos >= len(cr.data) {
-		return 0, io.EOF
+func TestHeaders(t *testing.T) {
+	inputDataStrs := [...]string{
+		"GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		"GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		"POST /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n -d '{\"flavor\":\"dark mode\"}'",
+		"POST / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n -d '{\"flavor\":\"dark mode\"}'",
+		"/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		"get /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		"GET /coffee HTTP/2.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 	}
-	endIndex := cr.pos + cr.numBytesPerRead
-	if endIndex > len(cr.data) {
-		endIndex = len(cr.data)
+	var maxSize int;
+	for _, str := range inputDataStrs {
+		maxSize = max(maxSize, len(str))
 	}
-	n = copy(p, cr.data[cr.pos:endIndex])
-	cr.pos += n
 
-	return n, nil
+	for byteSize := 1; byteSize < maxSize+5; byteSize += 5 {
+		// Test: Standard Headers
+		reader := &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+			numBytesPerRead: 3,
+		}
+		r, err := RequestFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, "localhost:42069", r.Headers["host"])
+		assert.Equal(t, "curl/7.81.0", r.Headers["user-agent"])
+		assert.Equal(t, "*/*", r.Headers["accept"])
+
+		// Test: Empty Header
+		reader = &chunkReader{
+			data:            "GET / HTTP/1.1\r\n\r\n",
+			numBytesPerRead: 3,
+		}
+		r, err = RequestFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, 0, len(r.Headers))
+
+		// Test: Duplicate Headers
+		reader = &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\nUser-Agent: Suneet\r\n\r\n",
+			numBytesPerRead: 3,
+		}
+		r, err = RequestFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, "localhost:42069", r.Headers["host"])
+		assert.Equal(t, "curl/7.81.0, Suneet", r.Headers["user-agent"])
+		assert.Equal(t, "*/*", r.Headers["accept"])
+
+		// Test: Case Insensitive Header
+		reader = &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\nuser-agent: Suneet\r\n\r\n",
+			numBytesPerRead: 3,
+		}
+		r, err = RequestFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, "localhost:42069", r.Headers["host"])
+		assert.Equal(t, "curl/7.81.0, Suneet", r.Headers["user-agent"])
+		assert.Equal(t, "*/*", r.Headers["accept"])
+
+		// Test: Malformed Header
+		reader = &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n",
+			numBytesPerRead: 3,
+		}
+		r, err = RequestFromReader(reader)
+		require.Error(t, err)
+
+		// Test: Missing End of Headers
+		reader = &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\nuser-agent: Suneet\r\n",
+			numBytesPerRead: 3,
+		}
+		r, err = RequestFromReader(reader)
+		require.Error(t, err)
+		// assert.Equal(t, 1, 2)
+	}
 }
