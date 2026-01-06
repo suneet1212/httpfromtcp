@@ -17,6 +17,22 @@ func NewHeaders() Headers {
 	return h
 }
 
+func (h Headers) Get(key string) (string, bool) {
+	key = strings.ToLower(key)
+	str, isPresent := h[key]
+	return str, isPresent
+}
+
+func (h Headers) Put(key, value string) {
+	finalKey := strings.ToLower(key)
+	_, keyExists := h[finalKey]
+	if keyExists {
+		h[finalKey] = h[finalKey] + ", " + string(value)
+	} else {
+		h[finalKey] = string(value)
+	}
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	n = 0
 	done = false
@@ -59,14 +75,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return
 	}
 
-	finalKey := string(bytes.ToLower(key))
-
-	_, keyExists := h[finalKey]
-	if keyExists {
-		h[finalKey] = h[finalKey] + ", " + string(value)
-	} else {
-		h[finalKey] = string(value)
-	}
+	h.Put(string(key), string(value))
 	
 	n = len(header) + len(CRLF)
 	return
