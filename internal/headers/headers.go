@@ -27,10 +27,14 @@ func (h Headers) Put(key, value string) {
 	finalKey := strings.ToLower(key)
 	_, keyExists := h[finalKey]
 	if keyExists {
-		h[finalKey] = h[finalKey] + ", " + string(value)
+		h[finalKey] = h[finalKey] + ", " + value
 	} else {
-		h[finalKey] = string(value)
+		h[finalKey] = value
 	}
+}
+
+func (h Headers) PutOverWrite(key, value string) {
+	h[key] = value
 }
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
