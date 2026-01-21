@@ -1,7 +1,5 @@
 # HTTP From TCP
 
-Following boot.dev course on building an http 1.1 server from scratch in GoLang. Only assuming that there exists a tcp library implemented.
-
 Build the http parser step by step and use it to create a http server. Steps to build the server:
 
  <ol>
@@ -32,7 +30,3 @@ To see it in action:
   go run ./cmd/httpserver
   ```
 * Open the following on your browser: <a href="http://localhost:42069/video">http://localhost:42069/video</a>
-
-
-## References
-Course link: <a href="https://www.boot.dev/courses/learn-http-protocol-golang">Http From TCP Boot.dev</a>
