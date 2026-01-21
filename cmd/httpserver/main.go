@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"httpfromtcp/internal/headers"
@@ -19,11 +20,19 @@ import (
 const port = 42069
 
 func main() {
-	ser, err := server.Serve(port, handlerFunc)
+	// ser, err := server.Serve(port, handlerFunc)
+	// if err != nil {
+	// 	log.Fatalf("Error starting server: %v", err)
+	// }
+	// defer ser.Close()
+	// log.Println("Server started on port", port)
+
+	ser1, err := server.Serve(port, videoHandler)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
-	defer ser.Close()
+	defer ser1.Close()
+
 	log.Println("Server started on port", port)
 
 	sigChan := make(chan os.Signal, 1)
@@ -126,5 +135,42 @@ func handlerFunc(writer *response.Writer, req *request.Request) {
 		header.Replace("content-type", "text/html")
 		writer.WriteHeaders(header)
 		writer.WriteBody(responseBody)
+	}
+}
+
+func videoHandler(writer *response.Writer, req *request.Request) {
+	if req.RequestLine.Method == "GET" && req.RequestLine.RequestTarget == "/video" {
+		video, err := os.ReadFile("assets/vim.mp4")
+		if err != nil {
+			fmt.Printf("Failed to read video. %s", err.Error())
+		}
+
+		writer.WriteStatusLine(200)
+
+		header := response.GetDefaultHeader(0)
+		header.Remove("content-length")
+		header.Replace("content-type", "video/mp4")
+		header.Put("Transfer-Encoding", "chunked")
+		header.Put("Trailer", "X-Content-SHA256")
+		header.Put("Trailer", "X-Content-Length")
+		writer.WriteHeaders(header)
+
+		data := bytes.NewBuffer(video)
+		for {
+			buffer := make([]byte, 128)
+			n, err := data.Read(buffer)
+			if err != nil {
+				break
+			}
+			writer.WriteChunkedBody(buffer[:n])
+		}
+		writer.WriteChunkedBodyDone()
+		hash := sha256.Sum256(video)
+
+		trailer := headers.NewHeaders()
+		trailer.Put("X-Content-SHA256", fmt.Sprintf("%x", hash))
+		trailer.Put("X-Content-Length", fmt.Sprintf("%d",len(video)))
+		writer.WriteTrailers(trailer)
+		
 	}
 }

@@ -30,7 +30,7 @@ type Server struct {
 }
 
 func newServer(port int, handlerFunc Handler) *Server {
-	fmt.Printf("Creating new server on port%d\n", port)
+	fmt.Printf("Creating new server on port: %d\n", port)
 	var serverState atomic.Bool
 	serverState.Store(false)
 	return &Server{

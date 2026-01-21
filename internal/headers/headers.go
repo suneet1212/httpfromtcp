@@ -38,6 +38,7 @@ func (h Headers) Replace(key, value string) {
 }
 
 func (h Headers) Remove(key string) {
+	key = strings.ToLower(key)
 	delete(h, key)
 }
 
