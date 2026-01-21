@@ -33,8 +33,12 @@ func (h Headers) Put(key, value string) {
 	}
 }
 
-func (h Headers) PutOverWrite(key, value string) {
+func (h Headers) Replace(key, value string) {
 	h[key] = value
+}
+
+func (h Headers) Remove(key string) {
+	delete(h, key)
 }
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {

@@ -76,10 +76,7 @@ func GetDefaultHeader(contentLen int) headers.Headers {
 	return headerList
 }
 
-func (w *Writer) WriteHeaders(headers headers.Headers) error {
-	if w.state != StateStatusLineDone {
-		return fmt.Errorf("Cannot write headers - status is %s", w.state)
-	}
+func (w *Writer) WriteHeaderValues(headers headers.Headers) error {
 	if headers == nil {
 		headers = GetDefaultHeader(0)
 	}
@@ -93,7 +90,18 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	if w.state != StateStatusLineDone {
+		return fmt.Errorf("Cannot write headers - status is %s", w.state)
+	}
+
+	err := w.WriteHeaderValues(headers)
+	if err != nil {
+		return err
+	}
 	w.state = StateHeadersDone
 	return nil
 }
@@ -102,8 +110,34 @@ func (w *Writer) WriteBody(body string) (int, error) {
 	if w.state != StateHeadersDone {
 		return 0, fmt.Errorf("Cannot write response body - status is %s", w.state)
 	}
-	return w.Write([]byte(body))
+	w.state = StateCompleted
+	n, err := w.Write([]byte(body))
+	if err != nil {
+		return 0, err
+	}
+
+	w.state = StateCompleted
+	return n, err
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	if w.state != StateHeadersDone {
+		return 0, fmt.Errorf("Cannot write response body - status is %s", w.state)
+	}
 	
+	length := len(p)
+	writeLen, err := fmt.Fprintf(w, "%X%s%s%s", length, headers.CRLF, p, headers.CRLF)
+	return writeLen, err
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	n, err := w.Write([]byte("0\r\n\r\n"))
+	if err != nil {
+		return 0, err
+	}
+
+	w.state = StateCompleted
+	return n, nil
 }
 
 func (w *Writer) WriteResponse(statusCode StatusCode, msg string) {
@@ -111,4 +145,17 @@ func (w *Writer) WriteResponse(statusCode StatusCode, msg string) {
 	header := GetDefaultHeader(len(msg))
 	w.WriteHeaders(header)
 	w.WriteBody(msg)
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	if w.state != StateCompleted {
+		return fmt.Errorf("Need to complete writing body before writing the trailers")
+	}
+
+	err := w.WriteHeaderValues(h)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
