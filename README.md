@@ -24,9 +24,9 @@ Build the http parser step by step and use it to create a http server. Steps to 
 Now that the http protocol is ready, this can be used to create and host servers. 
 
 To see it in action:
-* Clone the repo and run it. This sets up a server running on port 42069 and waits for requests.
+* Clone the repo and run it. This sets up a server running on port 8080 and waits for requests.
   ```
   cd httpfromtcp
   go run ./cmd/httpserver
   ```
-* Open the following on your browser: <a href="http://localhost:42069/video">http://localhost:42069/video</a>
+* Open the following on your browser: <a href="http://localhost:8080/video">http://localhost:8080/video</a>

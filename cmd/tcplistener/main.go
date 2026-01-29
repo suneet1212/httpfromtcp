@@ -7,7 +7,7 @@ import (
 	"httpfromtcp/internal/request"
 )
 
-const PORT = ":42069"
+const PORT = ":8080"
 
 func main() {
 	listener, err := net.Listen("tcp", PORT)

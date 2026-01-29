@@ -10,42 +10,42 @@ import (
 func TestHeaders(t *testing.T) {
 	// Test: Valid single header
 	headers := NewHeaders()
-	data := []byte("Host: localhost:42069\r\n\r\n")
+	data := []byte("Host: localhost:8080\r\n\r\n")
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "localhost:8080", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
 	// Test: Valid single header with extra whitepace
 	headers = NewHeaders()
-	data = []byte("            Host:      localhost:42069     \r\n\r\n")
+	data = []byte("            Host:      localhost:8080     \r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "localhost:8080", headers["host"])
 	assert.Equal(t, 45, n)
 	assert.False(t, done)
 
 	// Test: Valid single header with existing headers
 	headers = NewHeaders()
 	headers["host"] = "localhost:12345"
-	data = []byte("            Host:      localhost:42069     \r\n\r\n")
+	data = []byte("            Host:      localhost:8080     \r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:12345, localhost:42069", headers["host"])
+	assert.Equal(t, "localhost:12345, localhost:8080", headers["host"])
 	assert.Equal(t, 45, n)
 	assert.False(t, done)
 
 	// Test: Valid 2 header with extra whitespace
 	headers = NewHeaders()
-	data = []byte("            host:      localhost:42069     \r\nUser: Suneet\r\n")
+	data = []byte("            host:      localhost:8080     \r\nUser: Suneet\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "localhost:8080", headers["host"])
 	assert.Equal(t, 45, n)
 	assert.False(t, done)
 
@@ -60,7 +60,7 @@ func TestHeaders(t *testing.T) {
 
 	// Test: Invalid spacing header
 	headers = NewHeaders()
-	data = []byte("       Host : localhost:42069       \r\n\r\n")
+	data = []byte("       Host : localhost:8080       \r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
@@ -68,7 +68,7 @@ func TestHeaders(t *testing.T) {
 
 	// Test: Invalid Character in header
 	headers = NewHeaders()
-	data = []byte("H©st: localhost:42069\r\n\r\n")
+	data = []byte("H©st: localhost:8080\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.Error(t, err)
 	assert.Equal(t, 0, n)

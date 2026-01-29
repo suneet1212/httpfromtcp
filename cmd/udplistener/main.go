@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-const PORT = "localhost:42069"
+const PORT = "localhost:8080"
 func main() {
 	// file, err := os.Open("messages.txt")
 	udpAddr, err := net.ResolveUDPAddr("udp", PORT)

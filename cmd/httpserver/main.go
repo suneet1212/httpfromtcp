@@ -17,7 +17,7 @@ import (
 	"syscall"
 )
 
-const port = 42069
+const port = 8080
 
 func main() {
 	// ser, err := server.Serve(port, handlerFunc)
